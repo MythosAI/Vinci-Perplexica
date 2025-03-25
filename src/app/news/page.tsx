@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
-export interface News {
+interface News {
   id: string;
   title: string;
   summary: string;
@@ -125,12 +125,4 @@ const NewsPageContent = () => {
   );
 };
 
-const NewsPage = () => {
-  return (
-    <>
-        <NewsPageContent />
-    </>
-  );
-};
-
-export default NewsPage;
+export default NewsPageContent;
