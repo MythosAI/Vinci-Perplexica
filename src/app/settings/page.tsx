@@ -473,7 +473,7 @@ const Page = () => {
               </div>
             </SettingsSection>
 
-            <SettingsSection title="Model Settings">
+            {/* <SettingsSection title="Model Settings">
               {config.chatModelProviders && (
                 <div className="flex flex-col space-y-4">
                   <div className="flex flex-col space-y-1">
@@ -789,7 +789,7 @@ const Page = () => {
                   />
                 </div>
               </div>
-            </SettingsSection>
+            </SettingsSection> */}
           </div>
         )
       )}
