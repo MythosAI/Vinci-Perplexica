@@ -12,11 +12,25 @@ interface News {
   title: string;
   summary: string;
   description: string;
+  publish_date: string;
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_AWS_DB_API_URL || '';
 const API_URL = `${API_BASE_URL}?queryType=joint&num_results=20`;
 const API_KEY = process.env.NEXT_PUBLIC_AWS_DB_API_KEY || '';
+
+const formatDate = (dateString: string) => {
+  const utcDate = new Date(dateString + 'Z'); // Force UTC
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Local user timezone
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    month: 'numeric',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(utcDate);
+};
 
 const NewsPageContent = () => {
   const [news, setNews] = useState<News[]>([]);
@@ -47,7 +61,8 @@ const NewsPageContent = () => {
         const formattedNews = data.result.map((item: any) => ({
           id: item[0],         // Video ID (used in YouTube links)
           title: item[1],      // News title
-          description: item[3], // Short description
+          publish_date: item[2],
+          description: item[5], // Short description
           summary: item[4],    // Full summary (for Show More)
         }));
 
@@ -105,6 +120,10 @@ const NewsPageContent = () => {
             key={item.id}
             className="w-full max-w-6xl mx-auto px-6 py-6 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 bg-white dark:bg-gray-800 overflow-hidden"
           >
+            {/* DATE */}
+            <p className="text-sm text-gray-400 dark:text-gray-500 mb-2">
+              {formatDate(item.publish_date)}
+            </p>
             <div className="flex flex-col lg:flex-row items-start space-y-4 lg:space-y-0 lg:space-x-4 pt-6">
               {/* Thumbnail on the Left */}
               <div className="w-1/2 aspect-video">
