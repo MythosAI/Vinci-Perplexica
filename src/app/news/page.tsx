@@ -4,6 +4,8 @@ import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
+
 
 interface News {
   id: string;
@@ -138,10 +140,9 @@ const NewsPageContent = () => {
               {/* Text on the Right */}
               <div className="flex-1 pt-2">
                 <h2 className="text-xl font-bold text-black dark:text-white">{item.title}</h2>
-                <p 
-                  className={`text-lg text-gray-500 dark:text-gray-400 mt-2 overflow-hidden ${
-                    expanded[item.id] ? '' : 'line-clamp-3'
-                  }`}
+                <p
+                  className={`text-lg text-gray-500 dark:text-gray-400 mt-2 overflow-hidden ${expanded[item.id] ? '' : 'line-clamp-3'
+                    }`}
                 >
                   {expanded[item.id] ? item.description : `${item.description.slice(0, 120)}...`}
                 </p>
@@ -155,7 +156,9 @@ const NewsPageContent = () => {
             </div>
 
             {expanded[item.id] && (
-              <p className="text-md text-gray-500 dark:text-gray-400 mt-2">{item.summary}</p>
+              <div className="prose dark:prose-invert mt-4 max-w-none">
+                <ReactMarkdown>{item.summary}</ReactMarkdown>
+              </div>
             )}
           </div>
         ))}
