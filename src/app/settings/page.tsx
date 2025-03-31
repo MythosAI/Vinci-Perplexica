@@ -8,6 +8,7 @@ import ThemeSwitcher from '@/components/theme/Switcher';
 import { ImagesIcon, VideoIcon } from 'lucide-react';
 import Link from 'next/link';
 
+
 interface SettingsType {
   chatModelProviders: {
     [key: string]: [Record<string, any>];
