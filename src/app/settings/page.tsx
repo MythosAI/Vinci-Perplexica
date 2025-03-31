@@ -8,6 +8,7 @@ import ThemeSwitcher from '@/components/theme/Switcher';
 import { ImagesIcon, VideoIcon } from 'lucide-react';
 import Link from 'next/link';
 
+
 interface SettingsType {
   chatModelProviders: {
     [key: string]: [Record<string, any>];
@@ -473,7 +474,7 @@ const Page = () => {
               </div>
             </SettingsSection>
 
-            <SettingsSection title="Model Settings">
+            {/* <SettingsSection title="Model Settings">
               {config.chatModelProviders && (
                 <div className="flex flex-col space-y-4">
                   <div className="flex flex-col space-y-1">
@@ -692,9 +693,9 @@ const Page = () => {
               )}
             </SettingsSection>
 
-            <SettingsSection title="API Keys">
+            {/* <SettingsSection title="API Keys">
               <div className="flex flex-col space-y-4">
-                <div className="flex flex-col space-y-1">
+                {/* <div className="flex flex-col space-y-1">
                   <p className="text-black/70 dark:text-white/70 text-sm">
                     OpenAI API Key
                   </p>
@@ -711,7 +712,7 @@ const Page = () => {
                     }}
                     onSave={(value) => saveConfig('openaiApiKey', value)}
                   />
-                </div>
+                </div> }
 
                 <div className="flex flex-col space-y-1">
                   <p className="text-black/70 dark:text-white/70 text-sm">
@@ -789,7 +790,7 @@ const Page = () => {
                   />
                 </div>
               </div>
-            </SettingsSection>
+            </SettingsSection> */}
           </div>
         )
       )}
