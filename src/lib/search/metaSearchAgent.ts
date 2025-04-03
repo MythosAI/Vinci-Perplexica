@@ -44,6 +44,7 @@ interface Config {
   queryGeneratorPrompt: string;
   responsePrompt: string;
   activeEngines: string[];
+  useFinance: boolean;
 }
 
 type BasicChainInput = {
@@ -261,6 +262,10 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
             query = searchRetrieverResult.query;
             docs = searchRetrieverResult.docs;
+          }
+
+          if (this.config.useFinance) {
+            // TODO add finance stuff to docs
           }
 
           const sortedDocs = await this.rerankDocs(

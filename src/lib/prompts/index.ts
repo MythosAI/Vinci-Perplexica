@@ -16,10 +16,16 @@ import {
   youtubeSearchResponsePrompt,
   youtubeSearchRetrieverPrompt,
 } from './youtubeSearch';
+import {
+  finSearchResponsePrompt,
+  finSearchRetrieverPrompt,
+} from './finSearch';
 
 export default {
   webSearchResponsePrompt,
   webSearchRetrieverPrompt,
+  finSearchResponsePrompt,
+  finSearchRetrieverPrompt,
   academicSearchResponsePrompt,
   academicSearchRetrieverPrompt,
   redditSearchResponsePrompt,

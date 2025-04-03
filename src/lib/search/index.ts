@@ -10,6 +10,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerankThreshold: 0.3,
     searchWeb: true,
     summarizer: true,
+    useFinance: false,
   }),
   academicSearch: new MetaSearchAgent({
     activeEngines: ['arxiv', 'google scholar', 'pubmed'],
@@ -19,6 +20,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerankThreshold: 0,
     searchWeb: true,
     summarizer: false,
+    useFinance: false,
   }),
   writingAssistant: new MetaSearchAgent({
     activeEngines: [],
@@ -28,6 +30,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerankThreshold: 0,
     searchWeb: false,
     summarizer: false,
+    useFinance: false,
   }),
   wolframAlphaSearch: new MetaSearchAgent({
     activeEngines: ['wolframalpha'],
@@ -37,6 +40,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerankThreshold: 0,
     searchWeb: true,
     summarizer: false,
+    useFinance: false,
   }),
   youtubeSearch: new MetaSearchAgent({
     activeEngines: ['youtube'],
@@ -46,6 +50,7 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerankThreshold: 0.3,
     searchWeb: true,
     summarizer: false,
+    useFinance: false,
   }),
   redditSearch: new MetaSearchAgent({
     activeEngines: ['reddit'],
@@ -55,5 +60,16 @@ export const searchHandlers: Record<string, MetaSearchAgent> = {
     rerankThreshold: 0.3,
     searchWeb: true,
     summarizer: false,
+    useFinance: false,
+  }),
+  finSearch: new MetaSearchAgent({
+    activeEngines: [],
+    queryGeneratorPrompt: prompts.finSearchRetrieverPrompt,
+    responsePrompt: prompts.finSearchResponsePrompt,
+    rerank: true,
+    rerankThreshold: 0.3,
+    searchWeb: true,
+    summarizer: true,
+    useFinance: true,
   }),
 };
