@@ -205,11 +205,11 @@ const loadMessages = async (
   const data = await res.json();
 
   const messages = data.messages.map((msg: any) => {
-	  const metadata =
-	    typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;
+    const metadata =
+      typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata;
     return {
       ...msg,
-      ...metadata,
+      ...msg.metadata,
     };
   }) as Message[];
 
