@@ -265,7 +265,25 @@ class MetaSearchAgent implements MetaSearchAgentType {
           }
 
           if (this.config.useFinance) {
-            // TODO add finance stuff to docs
+            /* TODO add finance stuff to Docs
+
+            If finance is enabled, this needs to be an agent that runs in a loop and does:
+            
+            1) Ask agent what data to query and have it output response like:
+                Query Stock: AAPL Closing Price, Resistance Level, Support Level
+                Query Stock: AAPL MACD, RSI, KDJ, BOLL
+                Query Stock: AAPL 5 Day MA, 10 Day MA, 20 Day MA
+                Query Stock: AAPL Net Fund Flow, Net Fund Flow (Block Order)
+                Query Stock: AAPL Consesus Rating, Analyst Average Price Target
+                Web Search: Apple fundamental Analysis
+                Web Search: Apple technical Analysis
+                Web Search: Apple market sentiments
+                Web Search: Apple news
+                Reddit Search: Apple stock
+                Finviz Search: Apple news
+              2) Given all the data from the above, perform a deep reflection 
+            */
+
           }
 
           const sortedDocs = await this.rerankDocs(
