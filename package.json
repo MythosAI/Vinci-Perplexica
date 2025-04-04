@@ -12,6 +12,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "pg": "^8.x.x",
     "@auth0/nextjs-auth0": "^4",
     "@headlessui/react": "^2.2.0",
     "@iarna/toml": "^2.2.5",

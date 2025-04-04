@@ -6,3 +6,25 @@
 
 ### Adding userID to the schema
 * complaining about userID column not existing find a way to reset the database within the docker container
+
+
+### Chats and Messages Schema
+
+CREATE TABLE chats (
+  id TEXT PRIMARY KEY,
+  userId TEXT NOT NULL,
+  title TEXT NOT NULL,
+  createdAt TEXT NOT NULL,
+  focusMode TEXT NOT NULL,
+  files JSON DEFAULT '[]'
+);
+
+CREATE TABLE messages (
+  id SERIAL PRIMARY KEY,
+  content TEXT NOT NULL,
+  chatId TEXT NOT NULL,
+  messageId TEXT NOT NULL,
+  role TEXT CHECK (role IN ('assistant', 'user')),
+  metadata JSON
+);
+
