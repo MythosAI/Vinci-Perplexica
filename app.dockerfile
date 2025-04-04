@@ -6,7 +6,8 @@ ENV NEXT_PUBLIC_AWS_DB_API_KEY=0KcuAyP5zT8kk2vW4MXAU9lMi52Yorti4vRwLwia
 WORKDIR /home/perplexica
 
 COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile --network-timeout 600000
+RUN yarn install
+#--frozen-lockfile --network-timeout 600000
 
 COPY tsconfig.json next.config.mjs next-env.d.ts postcss.config.js drizzle.config.ts tailwind.config.ts ./
 COPY src ./src
