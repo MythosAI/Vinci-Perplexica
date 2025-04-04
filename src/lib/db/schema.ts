@@ -15,7 +15,7 @@ export const messages = pgTable('messages', {
   content: text('content').notNull(),
   chatId: text('chatid').notNull(),
   messageId: text('messageid').notNull(),
-  role: text('type').$type<'assistant' | 'user'>(), // no enum type helper yet, so we simulate it
+  role: text('role').$type<'assistant' | 'user'>(), // no enum type helper yet, so we simulate it
   metadata: json('metadata'),
 });
 
