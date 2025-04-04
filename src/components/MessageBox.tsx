@@ -20,6 +20,8 @@ import SearchImages from './SearchImages';
 import SearchVideos from './SearchVideos';
 import { useSpeech } from 'react-text-to-speech';
 import ThinkBox from './ThinkBox';
+import StockChart from './StockChart';
+import { StockChartData } from '@/lib/services/stockService';
 
 const ThinkTagProcessor = ({ children }: { children: React.ReactNode }) => {
   return <ThinkBox content={children as string} />;
@@ -89,6 +91,33 @@ const MessageBox = ({
         component: ThinkTagProcessor,
       },
     },
+  };
+
+  const renderContent = () => {
+    // Check if the message contains stock data
+    const stockDataMatch = message.content.match(/STOCK_DATA:(.*?)(?:\n|$)/);
+    console.log('Message content:', message.content);
+    console.log('Stock data match:', stockDataMatch);
+    
+    if (stockDataMatch) {
+      try {
+        const stockData: StockChartData = JSON.parse(stockDataMatch[1]);
+        console.log('Successfully parsed stock data:', stockData);
+        return (
+          <div className="space-y-4">
+            <div className="whitespace-pre-wrap">
+              {message.content.replace(/STOCK_DATA:.*?(?:\n|$)/, '')}
+            </div>
+            <div className="mt-4">
+              <StockChart data={stockData} height={300} width={600} />
+            </div>
+          </div>
+        );
+      } catch (error) {
+        console.error('Error parsing stock data:', error);
+      }
+    }
+    return <div className="whitespace-pre-wrap">{message.content}</div>;
   };
 
   return (

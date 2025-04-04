@@ -24,6 +24,7 @@ import computeSimilarity from '../utils/computeSimilarity';
 import formatChatHistoryAsString from '../utils/formatHistory';
 import eventEmitter from 'events';
 import { StreamEvent } from '@langchain/core/tracers/log_stream';
+import { StockService } from '../services/stockService';
 
 export interface MetaSearchAgentType {
   searchAndAnswer: (
@@ -54,6 +55,7 @@ type BasicChainInput = {
 class MetaSearchAgent implements MetaSearchAgentType {
   private config: Config;
   private strParser = new StringOutputParser();
+  private lastQuery: string | null = null;
 
   constructor(config: Config) {
     this.config = config;
@@ -419,7 +421,33 @@ class MetaSearchAgent implements MetaSearchAgentType {
     return [];
   }
 
-  private processDocs(docs: Document[]) {
+  private async processDocs(docs: Document[]) {
+    // Check if the query is about stocks
+    const stockSymbolMatch = this.lastQuery?.match(/\$([A-Z]{1,5})/);
+    console.log('Last query:', this.lastQuery);
+    console.log('Stock symbol match:', stockSymbolMatch);
+    
+    if (stockSymbolMatch) {
+      const symbol = stockSymbolMatch[1];
+      try {
+        console.log('Fetching stock data for symbol:', symbol);
+        const stockService = StockService.getInstance();
+        const stockData = await stockService.fetchStockData(symbol);
+        console.log('Successfully fetched stock data');
+        
+        // Add stock data to the context
+        docs.unshift(new Document({
+          pageContent: `STOCK_DATA:${JSON.stringify(stockData)}`,
+          metadata: {
+            title: `${symbol} Stock Data`,
+            type: 'stock_data',
+          },
+        }));
+      } catch (error) {
+        console.error('Error fetching stock data:', error);
+      }
+    }
+
     return docs
       .map(
         (_, index) =>
