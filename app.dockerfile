@@ -9,7 +9,7 @@ COPY package.json yarn.lock ./
 RUN yarn install
 #--frozen-lockfile --network-timeout 600000
 
-COPY tsconfig.json next.config.mjs next-env.d.ts postcss.config.js drizzle.config.ts tailwind.config.ts ./
+COPY .env tsconfig.json next.config.mjs next-env.d.ts postcss.config.js drizzle.config.ts tailwind.config.ts ./
 COPY src ./src
 COPY public ./public
 
