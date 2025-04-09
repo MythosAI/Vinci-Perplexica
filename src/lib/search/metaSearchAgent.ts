@@ -250,6 +250,8 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
           let docs: Document[] | null = null;
           let query = input.query;
+          console.log("Input Query: " + query)
+
 
           if (this.config.searchWeb) {
             const searchRetrieverChain =
@@ -262,6 +264,8 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
             query = searchRetrieverResult.query;
             docs = searchRetrieverResult.docs;
+            console.log("Search Retriever Query: " + query)
+            console.log("Search Retriever Docs: " + docs)
           }
 
           if (this.config.useFinance) {
