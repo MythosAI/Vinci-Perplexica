@@ -1,0 +1,10 @@
+# docker-compose.override.local.yml
+services:
+  app:
+    build:
+      dockerfile: Dockerfile.local
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - NODE_ENV=development
+      - NEXT_PUBLIC_AWS_DB_API_URL=https://lyxeetk4w1.execute-api.us-east-1.amazonaws.com/default/getFromStockalyzerDB
+      - NEXT_PUBLIC_AWS_DB_API_KEY=0KcuAyP5zT8kk2vW4MXAU9lMi52Yorti4vRwLwia
