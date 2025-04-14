@@ -69,7 +69,7 @@ const AdminDashboard = () => {
       console.log('Received messages data:', data);
       setMessages(data.messages.map((msg: any) => ({
         ...msg,
-        ...JSON.parse(msg.metadata)
+        ...(typeof msg.metadata === 'string' ? JSON.parse(msg.metadata) : msg.metadata || {}) // need to make the metadata consistent is it a string or json?
       })));
     } catch (error) {
       console.error('Error fetching messages:', error);

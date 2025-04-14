@@ -19,6 +19,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_AWS_DB_API_URL || '';
 const API_URL = `${API_BASE_URL}?queryType=joint&num_results=20`;
 const API_KEY = process.env.NEXT_PUBLIC_AWS_DB_API_KEY || '';
 
+console.log('Debug - API_BASE_URL:', API_BASE_URL);
+console.log('Debug - API_URL:', API_URL);
+console.log('Debug - API_KEY:', API_KEY ? 'Present' : 'Missing');
+
 const formatDate = (dateString: string) => {
   const utcDate = new Date(dateString + 'Z'); // Force UTC
   return new Intl.DateTimeFormat('en-US', {
@@ -41,6 +45,9 @@ const NewsPageContent = () => {
   useEffect(() => {
     const fetchNews = async () => {
       try {
+        console.log('Fetching from URL:', API_URL);
+        console.log('Using API Key:', API_KEY ? 'Present' : 'Missing');
+        
         const response = await fetch(API_URL, {
           method: 'GET',
           headers: {
@@ -49,8 +56,13 @@ const NewsPageContent = () => {
           },
         });
 
+        console.log('Response status:', response.status);
+        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+        
         if (!response.ok) {
-          throw new Error(`Failed to fetch news: ${response.statusText}`);
+          const text = await response.text();
+          console.error('Error response body:', text);
+          throw new Error(`Failed to fetch news: ${response.statusText}\nBody: ${text}`);
         }
 
         const data = await response.json();

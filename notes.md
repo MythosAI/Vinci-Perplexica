@@ -28,3 +28,6 @@ CREATE TABLE messages (
   metadata JSON
 );
 
+### Errors
+1. admin page can't see all messages
+2. having weird fetch issue with .env
