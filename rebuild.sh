@@ -3,10 +3,11 @@
 start_time=$(date +%s)
 
 echo "Bringing down Docker Compose services and removing volumes..."
-docker compose down -v
+# docker compose down -v
+docker stop perplexica-stockalyzer-app-1
 
-echo "Pruning unused Docker data..."
-docker system prune -af
+# echo "Pruning unused Docker data..."
+# docker system prune -af
 
 echo "Rebuilding services without cache..."
 docker compose build --no-cache

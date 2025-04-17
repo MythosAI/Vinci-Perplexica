@@ -231,6 +231,7 @@ export const POST = async (req: Request) => {
     let embedding = embeddingModel.model;
 
     if (body.chatModel?.provider === 'custom_openai') {
+      console.log("TEST");
       console.log('2_OPENAI_API_KEY:', getCustomOpenaiApiKey());
 
       llm = new ChatOpenAI({
