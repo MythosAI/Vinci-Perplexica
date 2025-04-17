@@ -63,11 +63,16 @@ class MetaSearchAgent implements MetaSearchAgentType {
   private async createSearchRetrieverChain(llm: BaseChatModel) {
     (llm as unknown as ChatOpenAI).temperature = 0;
 
+    console.debug('Creating search retriever chain...');
+
     return RunnableSequence.from([
       PromptTemplate.fromTemplate(this.config.queryGeneratorPrompt),
       llm,
       this.strParser,
       RunnableLambda.from(async (input: string) => {
+        // Where exactly does inpuut come from? this.strParser?
+        console.debug('Given Input:', input);
+
         const linksOutputParser = new LineListOutputParser({
           key: 'links',
         });
@@ -76,17 +81,33 @@ class MetaSearchAgent implements MetaSearchAgentType {
           key: 'question',
         });
 
+        // Parse any links from the user input
         const links = await linksOutputParser.parse(input);
+
+        console.debug('Parsed Links:', links);
+        
+        // Parse the question from the user input
+        // TODO what does this really do??? 
         let question = this.config.summarizer
           ? await questionOutputParser.parse(input)
           : input;
 
+        console.debug('Parsed Question:', question);
+
         if (question === 'not_needed') {
+          // This will question will not perform a SearXNG search
           return { query: '', docs: [] };
         }
 
+        // Perform the XNG search
+
+        // If the user provided a link in the input, 
         if (links.length > 0) {
+          console.debug("CP1.1 - web search summarizer");
+          // If the user provided a link in the input
           if (question.length === 0) {
+            console.debug("CP1.2 - no question");
+            // If the user didn't provide a question and just the link, we will summarize the content
             question = 'summarize';
           }
 
@@ -203,16 +224,23 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
           return { query: question, docs: docs };
         } else {
+
+          console.debug("CP2");
+
+          // This removes the <think> tags from the question
+          // Where do the thinnk Tags come from? questionOutputParser?
           question = question.replace(/<think>.*?<\/think>/g, '');
+          console.debug("New Question: " + question);
 
           const res = await searchSearxng(question, {
             language: 'en',
             engines: this.config.activeEngines,
           });
 
+          
           const documents = res.results.map(
             (result) =>
-              new Document({
+              new Document({ 
                 pageContent:
                   result.content ||
                   (this.config.activeEngines.includes('youtube')
