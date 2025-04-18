@@ -73,6 +73,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
         // Input is user's question inn <question>...</question> tags (result is from retriever prompt run)
         console.debug('Given Input:', input);
 
+        // Parsers for XML tags
         const linksOutputParser = new LineListOutputParser({
           key: 'links',
         });
@@ -81,10 +82,21 @@ class MetaSearchAgent implements MetaSearchAgentType {
           key: 'question',
         });
 
-        const finQueryOutputParser = new LineOutputParser({
+        const finQueriesOutputParser = new LineOutputParser({
           key: 'queries',
         });
 
+        const finSingleQueryOutputParser = new LineOutputParser({
+          key: 'query',
+        });
+
+        const finTickerOutputParser = new LineOutputParser({
+          key: 'ticker',
+        });
+
+        const finCommandOutputParser = new LineOutputParser({
+          key: 'command',
+        });
 
         // Parse any links from the user input
         const links = await linksOutputParser.parse(input);
@@ -102,9 +114,22 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
         // If we're in Finance mode, we want to prefer financial data over web search
         if (this.config.useFinance) {
-          let queries = await finQueryOutputParser.parse(input);
-          console.debug('Parsed Queries:', queries);
-          // extract query tags
+          let queriesRaw = await finQueriesOutputParser.parse(input);
+          console.debug('Parsed Queries:', queriesRaw);
+          
+          const queryBlocks = queriesRaw.split('\n').map(q => q.trim()).filter(Boolean);
+
+          for (const queryBlock of queryBlocks) {
+            const query = await finSingleQueryOutputParser.parse(queryBlock);
+            const ticker = await finTickerOutputParser.parse(query);
+            const command = await finCommandOutputParser.parse(query);
+
+            console.debug('Parsed Query:', query);
+            console.debug('Parsed Ticker:', ticker);
+            console.debug('Parsed Command:', command);
+          }
+
+          // extract individual query tags
           // iterate through query tags and call backennd to get data
           // store results in docs??? needs to be passed to annswering chain
         }
