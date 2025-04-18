@@ -70,7 +70,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
       llm,
       this.strParser,
       RunnableLambda.from(async (input: string) => {
-        // Where exactly does inpuut come from? this.strParser?
+        // Input is user's question inn <question>...</question> tags (result is from retriever prompt run)
         console.debug('Given Input:', input);
 
         const linksOutputParser = new LineListOutputParser({
@@ -81,24 +81,40 @@ class MetaSearchAgent implements MetaSearchAgentType {
           key: 'question',
         });
 
+        const finQueryOutputParser = new LineOutputParser({
+          key: 'queries',
+        });
+
+
         // Parse any links from the user input
         const links = await linksOutputParser.parse(input);
 
         console.debug('Parsed Links:', links);
         
-        // Parse the question from the user input
-        // TODO what does this really do??? 
+        // Parse the question from the user input (removing question tags)
+        // TODO what does this really do??? I think this solely extracts the question from the input since there could be other tags?
+        // Actually this seems to be the result of the retreiever prompt?
         let question = this.config.summarizer
           ? await questionOutputParser.parse(input)
           : input;
 
         console.debug('Parsed Question:', question);
 
+        // If we're in Finance mode, we want to prefer financial data over web search
+        if (this.config.useFinance) {
+          let queries = await finQueryOutputParser.parse(input);
+          console.debug('Parsed Queries:', queries);
+          // extract query tags
+          // iterate through query tags and call backennd to get data
+          // store results in docs??? needs to be passed to annswering chain
+        }
+        // TODO need to handle cases where financial data neneeded and question both needed and not neneded
+
         if (question === 'not_needed') {
           // This will question will not perform a SearXNG search
           return { query: '', docs: [] };
         }
-
+        
         // Perform the XNG search
 
         // If the user provided a link in the input, 
@@ -229,6 +245,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
           // This removes the <think> tags from the question
           // Where do the thinnk Tags come from? questionOutputParser?
+          // Note the think tags are not always present...
           question = question.replace(/<think>.*?<\/think>/g, '');
           console.debug("New Question: " + question);
 
@@ -277,8 +294,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
           );
 
           let docs: Document[] | null = null;
-          let query = input.query;
-          console.log("Input Query: " + query)
+          let query = input.query; // This is exactly what the user asked
 
 
           if (this.config.searchWeb) {
