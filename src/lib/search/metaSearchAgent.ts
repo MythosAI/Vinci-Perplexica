@@ -124,14 +124,36 @@ class MetaSearchAgent implements MetaSearchAgentType {
             const ticker = await finTickerOutputParser.parse(query);
             const command = await finCommandOutputParser.parse(query);
 
-            console.debug('Parsed Query:', query);
             console.debug('Parsed Ticker:', ticker);
             console.debug('Parsed Command:', command);
-          }
 
-          // extract individual query tags
-          // iterate through query tags and call backennd to get data
-          // store results in docs??? needs to be passed to annswering chain
+            // Make backend call and get data
+            const response = await fetch(`${process.env.FIN_BACKEND_SERVER}/${command}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ "ticker": ticker }),
+            });
+
+            if (!response.ok) {
+              console.warn(`Finance data fetch failed for ${ticker} ${command}`);
+              continue;
+            }
+          
+            const result = await response.json();
+
+            console.debug('Parsed Result:', result);
+
+            // store results in docs??? needs to be passed to answering chain
+            docs.push(
+              new Document({
+                pageContent: result.content || JSON.stringify(result),
+                metadata: {
+                  ticker,
+                  command,
+                },
+              }),
+            );
+          }
         }
         // TODO need to handle cases where financial data neneeded and question both needed and not neneded
 

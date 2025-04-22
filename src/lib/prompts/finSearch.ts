@@ -8,10 +8,11 @@ If the question requires current financial data you should prioritize using fina
 
 Valid Financial Commands and their Functionalities:
 - CurrentPrice: retrieves the current price of the stock.
-- LastClosePrice: retrieves the last closing price of the stock.
 - News: retrieves the latest news articles related to the stock.
-- MarketSentiment: retrieves the market sentiment for the stock.
 - AnalystRating: retrieves the latest analyst ratings for the stock.
+- InsiderTrades: retrieves the latest insider trades for the stock.
+- Fundamentals: retrieves the latest fundamental data for the stock.
+- MarketSentiment: retrieves the latest market sentiment for the stock.
 
 There are several examples attached for your reference inside the below \`examples\` XML block
 
@@ -77,9 +78,11 @@ What is the market outlook for Tesla?
 </question>
 
 <queries>
-<query><ticker>TSLA</ticker><command>MarketSentiment</command></query>
-<query><ticker>TSLA</ticker><command>AnalystRating</command></query>
+<query><ticker>TSLA</ticker><command>CurrentPrice</command></query>
 <query><ticker>TSLA</ticker><command>News</command></query>
+<query><ticker>TSLA</ticker><command>AnalystRating</command></query>
+<query><ticker>TSLA</ticker><command>Fundamentals</command></query>
+<query><ticker>TSLA</ticker><command>MarketSentiment</command></query>
 </queries>
 \`
 
