@@ -112,6 +112,8 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
         console.debug('Parsed Question:', question);
 
+        let docs: Document[] = [];
+
         // If we're in Finance mode, we want to prefer financial data over web search
         if (this.config.useFinance) {
           let queriesRaw = await finQueriesOutputParser.parse(input);
@@ -159,7 +161,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
         if (question === 'not_needed') {
           // This will question will not perform a SearXNG search
-          return { query: '', docs: [] };
+          return { query: '', docs: docs };
         }
         
         // Perform the XNG search
@@ -174,7 +176,6 @@ class MetaSearchAgent implements MetaSearchAgentType {
             question = 'summarize';
           }
 
-          let docs: Document[] = [];
 
           const linkDocs = await getDocumentsFromLinks({ links });
 
@@ -318,7 +319,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
               }),
           );
 
-          return { query: question, docs: documents };
+          return { query: question, docs: [...docs, ...documents] };
         }
       }),
     ]);
