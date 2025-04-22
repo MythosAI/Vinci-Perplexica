@@ -130,10 +130,9 @@ class MetaSearchAgent implements MetaSearchAgentType {
             console.debug('Parsed Command:', command);
 
             // Make backend call and get data
-            const response = await fetch(`${process.env.FIN_BACKEND_SERVER}/${command}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ "ticker": ticker }),
+            console.log("Finance Backend Endpoint:", `http://${process.env.FIN_BACKEND_SERVER}:${process.env.FIN_PORT}/${command}?ticker=${ticker}`);
+            const response = await fetch(`http://${process.env.FIN_BACKEND_SERVER}:${process.env.FIN_PORT}/${command}?ticker=${ticker}`, {
+              method: 'GET',
             });
 
             if (!response.ok) {
@@ -152,6 +151,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
                 metadata: {
                   ticker,
                   command,
+                  url: `finance://${command}/${ticker}`,
                 },
               }),
             );
