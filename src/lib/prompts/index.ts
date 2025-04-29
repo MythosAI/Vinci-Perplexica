@@ -16,6 +16,11 @@ import {
   youtubeSearchResponsePrompt,
   youtubeSearchRetrieverPrompt,
 } from './youtubeSearch';
+import {
+  financeNewsRetrieverPrompt,
+  financeNewsSummaryPrompt,
+  financeNewsKeyPointsPrompt,
+} from './financeNews';
 
 export default {
   webSearchResponsePrompt,
@@ -29,4 +34,7 @@ export default {
   writingAssistantPrompt,
   youtubeSearchResponsePrompt,
   youtubeSearchRetrieverPrompt,
+  financeNewsRetrieverPrompt,
+  financeNewsSummaryPrompt,
+  financeNewsKeyPointsPrompt,
 };
