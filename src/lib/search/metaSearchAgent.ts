@@ -130,8 +130,8 @@ class MetaSearchAgent implements MetaSearchAgentType {
             console.debug('Parsed Command:', command);
 
             // Make backend call and get data
-            console.log("Finance Backend Endpoint:", `http://${process.env.FIN_BACKEND_SERVER}:${process.env.FIN_PORT}/${command}?ticker=${ticker}`);
-            const response = await fetch(`http://${process.env.FIN_BACKEND_SERVER}:${process.env.FIN_PORT}/${command}?ticker=${ticker}`, {
+            console.log("Finance Backend Endpoint:", `${process.env.FIN_BACKEND_SERVER}/${command}?ticker=${ticker}`);
+            const response = await fetch(`${process.env.FIN_BACKEND_SERVER}/${command}?ticker=${ticker}`, {
               method: 'GET',
             });
 
