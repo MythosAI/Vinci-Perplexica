@@ -101,7 +101,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
         // Parse any links from the user input
         const links = await linksOutputParser.parse(input);
 
-        console.debug('Parsed Links:', links);
+        console.log('Parsed Links:', links);
         
         // Parse the question from the user input (removing question tags)
         // TODO what does this really do??? I think this solely extracts the question from the input since there could be other tags?
@@ -110,27 +110,28 @@ class MetaSearchAgent implements MetaSearchAgentType {
           ? await questionOutputParser.parse(input)
           : input;
 
-        console.debug('Parsed Question:', question);
+        console.log('Parsed Question:', question);
 
         let docs: Document[] = [];
 
         // If we're in Finance mode, we want to prefer financial data over web search
+        console.log("FINANCE MODE!");
         if (this.config.useFinance) {
           let queriesRaw = await finQueriesOutputParser.parse(input);
-          console.debug('Parsed Queries:', queriesRaw);
+          console.log('Parsed Queries:', queriesRaw);
           
           const queryBlocks = queriesRaw.split('\n').map(q => q.trim()).filter(Boolean);
 
           for (const queryBlock of queryBlocks) {
             const query = await finSingleQueryOutputParser.parse(queryBlock);
+            console.log('Parsed Query:', query);
             const ticker = await finTickerOutputParser.parse(query);
             const command = await finCommandOutputParser.parse(query);
 
-            console.debug('Parsed Ticker:', ticker);
-            console.debug('Parsed Command:', command);
+            console.log('Parsed Ticker:', ticker);
+            console.log('Parsed Command:', command);
 
             // Make backend call and get data
-            console.log("Finance Backend Endpoint:", `${process.env.FIN_BACKEND_SERVER}/${command}?ticker=${ticker}`);
             const response = await fetch(`${process.env.FIN_BACKEND_SERVER}/${command}?ticker=${ticker}`, {
               method: 'GET',
             });
@@ -142,7 +143,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
           
             const result = await response.json();
 
-            console.debug('Parsed Result:', result);
+            console.log('Parsed Result:', result);
 
             // store results in docs??? needs to be passed to answering chain
             docs.push(
@@ -151,7 +152,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
                 metadata: {
                   ticker,
                   command,
-                  url: `finance://${command}/${ticker}`,
+                  url: `NotAvailable`, // TODO add citation for news or analyst ratings
                 },
               }),
             );
@@ -354,10 +355,22 @@ class MetaSearchAgent implements MetaSearchAgentType {
               query,
             });
 
+            console.log("🟡 Retriever Chain Output:");
+            console.log(JSON.stringify(searchRetrieverResult, null, 2));
+
+            searchRetrieverResult.docs.forEach((doc, i) => {
+              const source = doc.metadata?.url || doc.metadata?.ticker || 'unknown';
+              const contentPreview = doc.pageContent
+                ? doc.pageContent.slice(0, 300)
+                : '[No content]';
+            
+              console.log(`📄 Doc ${i + 1}: [${source}]`);
+              console.log(contentPreview);
+            });
+            
+
             query = searchRetrieverResult.query;
             docs = searchRetrieverResult.docs;
-            console.log("Search Retriever Query: " + query)
-            console.log("Search Retriever Docs: " + docs)
           }
 
           if (this.config.useFinance) {
@@ -389,6 +402,15 @@ class MetaSearchAgent implements MetaSearchAgentType {
             embeddings,
             optimizationMode,
           );
+
+          console.log("🟢 Input to Answering Chain:");
+          console.log("🔹 Final Query:", query);
+          console.log("🔹 Context Document Count:", sortedDocs.length);
+
+          sortedDocs.forEach((doc, i) => {
+            console.log(`🔹 Context Doc ${i + 1}: [${doc.metadata?.url || doc.metadata?.ticker || 'unknown'}]`);
+            console.log(doc.pageContent.slice(0, 300)); // preview snippet
+          });
 
           return sortedDocs;
         })
