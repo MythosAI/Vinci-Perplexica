@@ -150,7 +150,7 @@ Microsoft vs Google stocks economic forecast
 10. Should I buy Apple stock?
 Rephrased question: \`
 <question>
-Is Apple stock a goood investment?
+Is Apple stock a good investment?
 </question>
 
 <queries>
@@ -158,6 +158,20 @@ Is Apple stock a goood investment?
 <query><ticker>AAPL</ticker><command>News</command></query>
 <query><ticker>AAPL</ticker><command>AnalystRatings</command></query>
 <query><ticker>AAPL</ticker><command>Fundamentals</command></query>
+<query><ticker>AAPL</ticker><command>MarketSentiment</command></query>
+</queries>
+\`
+
+11. Why was Apple up big today?
+Rephrased question: \`
+<question>
+Reason for Apple's stock increase today
+</question>
+
+<queries>
+<query><ticker>AAPL</ticker><command>CurrentPrice</command></query>
+<query><ticker>AAPL</ticker><command>News</command></query>
+<query><ticker>AAPL</ticker><command>AnalystRatings</command></query>
 <query><ticker>AAPL</ticker><command>MarketSentiment</command></query>
 </queries>
 \`
