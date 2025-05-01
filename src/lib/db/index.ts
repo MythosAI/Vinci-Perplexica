@@ -12,11 +12,8 @@ const client = new Client({
     rejectUnauthorized: false, // ⬅️ allow self-signed certs
   },
 });
-console.log('DB_HOST:', process.env.DB_PWD);
 
 await client.connect();
-console.log('1_OPENAI_API_KEY:', process.env.OPENAI_API_KEY);
-
 
 const db = drizzle(client, {
   schema: schema,
