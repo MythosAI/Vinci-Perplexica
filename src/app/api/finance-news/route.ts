@@ -1,5 +1,7 @@
 import { searchSearxng } from '@/lib/searxng';
 import { groupSimilarArticles } from '@/lib/utils/articleGrouping';
+import { ChatOpenAI } from '@langchain/openai';
+import { getOpenaiApiKey } from '@/lib/config';
 
 const financialSources = [
   'reuters.com',
@@ -10,8 +12,50 @@ const financialSources = [
   'marketwatch.com'
 ];
 
+// Add these interfaces
+interface NewsArticle {
+  title: string;
+  content: string;
+  url: string;
+  thumbnail?: string;
+  source: string;
+  publishDate?: string;
+  topics?: string[]; // Added for our topic-based grouping
+}
 // Reduce topics to focus on more similar content for testing
 const topics = ['finance', 'markets'];
+
+async function extractTopics(article: NewsArticle): Promise<string[]> {
+  console.log('Extracting topics from article...');
+  const openaiApiKey = getOpenaiApiKey();
+  if (!openaiApiKey) {
+    throw new Error('OpenAI API key not found in config.toml');
+  }
+
+  const llm = new ChatOpenAI({ 
+    openAIApiKey: openaiApiKey,
+    temperature: 0 
+  });
+  
+  const result = await llm.invoke(`
+    You are a financial news topic extractor. Your task is to identify the main topics discussed in the article.
+    Return a list of 2-3 specific topics that best describe what the article is about.
+    Each topic should be a short phrase (2-4 words) that captures the main subject.
+    Format your response as a comma-separated list of topics.
+
+    Article:
+    ${article.title}
+    ${article.content}
+
+    Topics:
+  `);
+  
+  // Split the response into individual topics and clean them
+  return (result.content as string)
+    .split(',')
+    .map(topic => topic.trim().toLowerCase())
+    .filter(topic => topic.length > 0);
+}
 
 export const GET = async (req: Request) => {
   try {
@@ -125,3 +169,66 @@ export const GET = async (req: Request) => {
     );
   }
 };
+
+export async function groupSimilarArticles(articles: NewsArticle[]): Promise<GroupedStory[]> {
+  // Extract topics for each article
+  const articlesWithTopics = await Promise.all(
+    articles.map(async (article) => ({
+      ...article,
+      topics: await extractTopics(article)
+    }))
+  );
+
+  const groups: GroupedStory[] = [];
+  const processedArticles = new Set();
+
+  // Group articles based on shared topics
+  for (let i = 0; i < articlesWithTopics.length; i++) {
+    if (processedArticles.has(i)) continue;
+
+    const currentArticle = articlesWithTopics[i];
+    const similarArticles = [currentArticle];
+    const usedSources = new Set([currentArticle.source]);
+    const usedUrls = new Set([currentArticle.url]);
+    processedArticles.add(i);
+
+    // Find articles with similar topics
+    for (let j = i + 1; j < articlesWithTopics.length; j++) {
+      if (processedArticles.has(j)) continue;
+      
+      const comparisonArticle = articlesWithTopics[j];
+      
+      // Skip if URLs are identical or from same source
+      if (usedUrls.has(comparisonArticle.url) || 
+          usedSources.has(comparisonArticle.source)) continue;
+
+      // Check for topic overlap
+      const sharedTopics = currentArticle.topics.filter(topic => 
+        comparisonArticle.topics.includes(topic)
+      );
+      
+      if (sharedTopics.length > 0) {
+        similarArticles.push(comparisonArticle);
+        usedSources.add(comparisonArticle.source);
+        usedUrls.add(comparisonArticle.url);
+        processedArticles.add(j);
+      }
+    }
+
+    // Create group if we have articles from different sources
+    if (similarArticles.length > 1 && usedSources.size > 1) {
+      const summary = await generateSummary(similarArticles);
+      const keyPoints = await extractKeyPoints(similarArticles);
+      
+      groups.push({
+        mainTitle: getMostRepresentativeTitle(similarArticles),
+        summary,
+        keyPoints,
+        articles: similarArticles,
+        bias: calculateBias(similarArticles)
+      });
+    }
+  }
+
+  return groups;
+}
