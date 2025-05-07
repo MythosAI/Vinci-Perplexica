@@ -1,7 +1,7 @@
 import { searchSearxng } from '@/lib/searxng';
-import { groupSimilarArticles } from '@/lib/utils/articleGrouping';
 import { ChatOpenAI } from '@langchain/openai';
 import { getOpenaiApiKey } from '@/lib/config';
+import { GroupedStory, generateSummary, extractKeyPoints, getMostRepresentativeTitle, calculateBias} from '@/lib/utils/articleGrouping';
 
 const financialSources = [
   'reuters.com',
@@ -23,7 +23,7 @@ interface NewsArticle {
   topics?: string[]; // Added for our topic-based grouping
 }
 // Reduce topics to focus on more similar content for testing
-const topics = ['finance', 'markets'];
+const topics = ['tariff','finance', 'markets'];
 
 async function extractTopics(article: NewsArticle): Promise<string[]> {
   console.log('Extracting topics from article...');
@@ -171,54 +171,127 @@ export const GET = async (req: Request) => {
 };
 
 export async function groupSimilarArticles(articles: NewsArticle[]): Promise<GroupedStory[]> {
+  console.log('\n=== STARTING ARTICLE GROUPING PROCESS ===');
+  console.log(`Total articles to process: ${articles.length}`);
+
+  // Debug: Log all articles and their sources first
+  console.log('\n=== INITIAL ARTICLES ===');
+  articles.forEach((article, idx) => {
+    console.log(`\nArticle ${idx}:`);
+    console.log(`- Source: ${article.source}`);
+    console.log(`- Title: "${article.title}"`);
+    console.log(`- URL: ${article.url}`);
+  });
+
   // Extract topics for each article
+  console.log('\n=== EXTRACTING TOPICS ===');
   const articlesWithTopics = await Promise.all(
-    articles.map(async (article) => ({
-      ...article,
-      topics: await extractTopics(article)
-    }))
+    articles.map(async (article, idx) => {
+      console.log(`\nExtracting topics for article ${idx}:`);
+      console.log(`- Title: "${article.title}"`);
+      const topics = await extractTopics(article);
+      console.log(`- Extracted topics: ${topics.join(', ')}`);
+      return {
+        ...article,
+        topics
+      };
+    })
   );
+
+  // Log all articles with their extracted topics
+  console.log('\n=== ARTICLES WITH TOPICS ===');
+  articlesWithTopics.forEach((article, idx) => {
+    console.log(`\nArticle ${idx}:`);
+    console.log(`- Source: ${article.source}`);
+    console.log(`- Title: "${article.title}"`);
+    console.log(`- Topics: ${article.topics.join(', ')}`);
+  });
 
   const groups: GroupedStory[] = [];
   const processedArticles = new Set();
 
   // Group articles based on shared topics
+  console.log('\n=== STARTING TOPIC-BASED GROUPING ===');
   for (let i = 0; i < articlesWithTopics.length; i++) {
-    if (processedArticles.has(i)) continue;
+    if (processedArticles.has(i)) {
+      console.log(`\nSkipping article ${i} as it's already processed`);
+      continue;
+    }
 
     const currentArticle = articlesWithTopics[i];
+    console.log(`\n=== PROCESSING ARTICLE ${i} ===`);
+    console.log(`- Source: ${currentArticle.source}`);
+    console.log(`- Title: "${currentArticle.title}"`);
+    console.log(`- Topics: ${currentArticle.topics.join(', ')}`);
+    
     const similarArticles = [currentArticle];
     const usedSources = new Set([currentArticle.source]);
     const usedUrls = new Set([currentArticle.url]);
     processedArticles.add(i);
 
     // Find articles with similar topics
+    console.log('\nLooking for similar articles...');
     for (let j = i + 1; j < articlesWithTopics.length; j++) {
-      if (processedArticles.has(j)) continue;
+      if (processedArticles.has(j)) {
+        console.log(`\nSkipping comparison article ${j} as it's already processed`);
+        continue;
+      }
       
       const comparisonArticle = articlesWithTopics[j];
       
       // Skip if URLs are identical or from same source
       if (usedUrls.has(comparisonArticle.url) || 
-          usedSources.has(comparisonArticle.source)) continue;
+          usedSources.has(comparisonArticle.source)) {
+        console.log(`\nSkipping article ${j}:`);
+        console.log(`- Reason: ${usedUrls.has(comparisonArticle.url) ? 'Duplicate URL' : 'Same source'}`);
+        console.log(`- Source: ${comparisonArticle.source}`);
+        console.log(`- Title: "${comparisonArticle.title}"`);
+        continue;
+      }
 
       // Check for topic overlap
       const sharedTopics = currentArticle.topics.filter(topic => 
         comparisonArticle.topics.includes(topic)
       );
       
+      console.log(`\nComparing with article ${j}:`);
+      console.log(`- Source: ${comparisonArticle.source}`);
+      console.log(`- Title: "${comparisonArticle.title}"`);
+      console.log(`- Topics: ${comparisonArticle.topics.join(', ')}`);
+      console.log(`- Shared topics: ${sharedTopics.join(', ') || 'None'}`);
+      
       if (sharedTopics.length > 0) {
+        console.log(`\nAdding article ${j} to group:`);
+        console.log(`- Shared topics: ${sharedTopics.join(', ')}`);
         similarArticles.push(comparisonArticle);
         usedSources.add(comparisonArticle.source);
         usedUrls.add(comparisonArticle.url);
         processedArticles.add(j);
+      } else {
+        console.log(`\nSkipping article ${j} - no shared topics`);
       }
     }
 
-    // Create group if we have articles from different sources
+    // Only create a group if we have articles from different sources
     if (similarArticles.length > 1 && usedSources.size > 1) {
+      console.log(`\n=== CREATING STORY GROUP ===`);
+      console.log(`Number of articles in group: ${similarArticles.length}`);
+      console.log(`Number of unique sources: ${usedSources.size}`);
+      console.log('\nArticles in group:');
+      similarArticles.forEach(article => {
+        console.log(`\n- [${article.source}] "${article.title}"`);
+        console.log(`  URL: ${article.url}`);
+        console.log(`  Topics: ${article.topics.join(', ')}`);
+      });
+      
+      // Generate summary and key points using LLM
+      console.log('\nGenerating summary for group...');
       const summary = await generateSummary(similarArticles);
+      console.log('Summary generated:', summary);
+
+      console.log('\nExtracting key points...');
       const keyPoints = await extractKeyPoints(similarArticles);
+      console.log('Key points extracted:', keyPoints);
       
       groups.push({
         mainTitle: getMostRepresentativeTitle(similarArticles),
@@ -227,8 +300,16 @@ export async function groupSimilarArticles(articles: NewsArticle[]): Promise<Gro
         articles: similarArticles,
         bias: calculateBias(similarArticles)
       });
+      console.log('\nGroup processed successfully');
+    } else {
+      console.log(`\nSkipping group creation:`);
+      console.log(`- Number of articles: ${similarArticles.length}`);
+      console.log(`- Number of unique sources: ${usedSources.size}`);
+      console.log(`- Sources: ${[...usedSources].join(', ')}`);
     }
   }
 
+  console.log(`\n=== ARTICLE GROUPING COMPLETE ===`);
+  console.log(`Created ${groups.length} story groups`);
   return groups;
 }
