@@ -26,15 +26,28 @@ interface GroupedStory {
 }
 
 export default function FinanceNews() {
+  const [config, setConfig] = useState({
+    numGroups: 1,
+    articlesPerGroup: 5,
+    seedSource: 'wsj.com'
+  });
+
   const { data, error, isLoading } = useSWR<{ stories: GroupedStory[] }>(
-    '/api/finance-news',
+    `/api/finance-news?numGroups=${config.numGroups}&articlesPerGroup=${config.articlesPerGroup}&seedSource=${config.seedSource}`,
     fetcher,
     {
-      revalidateOnFocus: false, // Don't revalidate when tab is focused
-      revalidateOnReconnect: false, // Don't revalidate when network reconnects
-      refreshInterval: 300000, // Revalidate every 5 minutes
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      refreshInterval: 300000,
     }
   );
+
+  const handleConfigChange = (key: string, value: string | number) => {
+    setConfig(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
 
   if (error) return <div>Failed to load</div>;
   if (isLoading) return <div>Loading...</div>;
@@ -48,6 +61,45 @@ export default function FinanceNews() {
           <Search />
           <h1 className="text-3xl font-medium p-2">Financial News</h1>
         </div>
+        
+        <div className="flex gap-4 my-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Number of Groups</label>
+            <input
+              type="number"
+              min="1"
+              max="5"
+              value={config.numGroups}
+              onChange={(e) => handleConfigChange('numGroups', parseInt(e.target.value))}
+              className="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Articles per Group</label>
+            <input
+              type="number"
+              min="2"
+              max="10"
+              value={config.articlesPerGroup}
+              onChange={(e) => handleConfigChange('articlesPerGroup', parseInt(e.target.value))}
+              className="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Seed Source</label>
+            <select
+              value={config.seedSource}
+              onChange={(e) => handleConfigChange('seedSource', e.target.value)}
+              className="mt-1 block w-40 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            >
+              <option value="wsj.com">Wall Street Journal</option>
+              <option value="bloomberg.com">Bloomberg</option>
+              <option value="reuters.com">Reuters</option>
+              <option value="ft.com">Financial Times</option>
+            </select>
+          </div>
+        </div>
+
         <hr className="border-t border-[#2B2C2C] my-4 w-full" />
       </div>
 
