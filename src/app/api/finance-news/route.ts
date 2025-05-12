@@ -30,7 +30,6 @@ const sourceBiasMap: Record<string, 'left' | 'center' | 'right'> = {
   'bloomberg.com': 'center',
   'wsj.com': 'right',
   'ft.com': 'center',
-  'cnbc.com': 'center',
   'foxbusiness.com': 'right',
   'marketwatch.com': 'center',
   'businessinsider.com': 'left',
@@ -60,6 +59,8 @@ async function getSeedArticle(source: string = 'wsj.com'): Promise<NewsArticle |
     }
 
     const article = response.results[0];
+    console.log("article.content");
+    console.log(article.content);
     return {
       ...article,
       source,
@@ -115,13 +116,16 @@ async function findRelatedArticles(topics: string[], numArticles: number): Promi
     'reuters.com',
     'bloomberg.com',
     'ft.com',
-    'cnbc.com',
     'marketwatch.com'
   ];
 
   const searchPromises = financialSources.map(async (source) => {
     try {
-      const response = await searchSearxng(`site:${source} ${searchQuery}`, {
+      // const response = await searchSearxng(`site:${source} ${searchQuery}`, {
+      //   engines: ['bing news'],
+      //   pageno: 1,
+      // });
+      const response = await searchSearxng(`${searchQuery}`, {
         engines: ['bing news'],
         pageno: 1,
       });
@@ -185,6 +189,19 @@ function calculateBias(articles: NewsArticle[]): { left: number; center: number;
 // Generate story group with summary and key points
 async function generateStoryGroup(seedArticle: NewsArticle, relatedArticles: NewsArticle[]): Promise<GroupedStory> {
   console.log('Generating story group...');
+  console.log('\n=== SEED ARTICLE ===');
+  console.log(`Title: ${seedArticle.title}`);
+  console.log(`Source: ${seedArticle.source}`);
+  console.log(`Content: ${seedArticle.content}`);
+  
+  console.log('\n=== RELATED ARTICLES ===');
+  relatedArticles.forEach((article, idx) => {
+    console.log(`\nArticle ${idx + 1}:`);
+    console.log(`Title: ${article.title}`);
+    console.log(`Source: ${article.source}`);
+    console.log(`Content: ${article.content}`);
+  });
+
   const openaiApiKey = getOpenaiApiKey();
   if (!openaiApiKey) {
     throw new Error('OpenAI API key not found in config.toml');
@@ -196,6 +213,7 @@ async function generateStoryGroup(seedArticle: NewsArticle, relatedArticles: New
   });
 
   // Generate summary
+  console.log('\n=== GENERATING SUMMARY ===');
   const summaryResult = await llm.invoke(`
     Write a comprehensive summary of this news story based on the following articles.
     Focus on the key developments and their implications.
@@ -205,8 +223,11 @@ async function generateStoryGroup(seedArticle: NewsArticle, relatedArticles: New
 
     Summary:
   `);
+  console.log('\nGenerated Summary:');
+  console.log(summaryResult.content);
 
   // Extract key points
+  console.log('\n=== EXTRACTING KEY POINTS ===');
   const keyPointsResult = await llm.invoke(`
     Extract the key points from these articles.
     Focus on the most important facts, developments, and implications.
@@ -217,6 +238,8 @@ async function generateStoryGroup(seedArticle: NewsArticle, relatedArticles: New
 
     Key Points:
   `);
+  console.log('\nGenerated Key Points:');
+  console.log(keyPointsResult.content);
 
   const keyPoints = (keyPointsResult.content as string)
     .split('\n')
