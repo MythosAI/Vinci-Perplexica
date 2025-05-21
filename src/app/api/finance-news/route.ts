@@ -1,6 +1,6 @@
 import { searchSearxng } from '@/lib/searxng';
 import { ChatOpenAI } from '@langchain/openai';
-import { getOpenaiApiKey } from '@/lib/config';
+import { getOpenaiApiKey, getNewsApiKey } from '@/lib/config';
 
 interface NewsArticle {
   title: string;
@@ -44,30 +44,75 @@ interface StoryGroupConfig {
   seedSource?: string;     // Optional: specify seed source (defaults to WSJ)
 }
 
-// Modify getSeedArticle to accept source parameter
-async function getSeedArticle(source: string = 'wsj.com'): Promise<NewsArticle | null> {
-  console.log(`Fetching seed article from ${source}...`);
+// Modify getTrendingNews to fetch more comprehensive results
+async function getTrendingNews(): Promise<NewsArticle[]> {
+  console.log('Fetching trending news from NewsAPI...');
+  const apiKey = getNewsApiKey();
+  if (!apiKey) {
+    throw new Error('NewsAPI key not found in environment variables');
+  }
+
   try {
-    const response = await searchSearxng(`site:${source}`, {
-      engines: ['bing news'],
-      pageno: 1,
+    // NewsAPI endpoint with more parameters for comprehensive results
+    const response = await fetch(
+      `https://newsapi.org/v2/top-headlines?` +
+      `category=business&` +
+      `language=en&` +
+      `country=us&` +
+      `pageSize=100&` + // Get maximum number of results
+      `sortBy=popularity&` + // Sort by popularity
+      `apiKey=${apiKey}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`NewsAPI error: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    if (!data.articles || data.articles.length === 0) {
+      console.log('No trending news found');
+      return [];
+    }
+
+    // Log all headlines for debugging
+    console.log('\n=== ALL TOP HEADLINES ===');
+    data.articles.forEach((article: any, index: number) => {
+      console.log(`${index + 1}. ${article.title} (${article.source.name})`);
     });
 
-    if (response.results.length === 0) {
-      console.log(`No articles found from ${source}`);
+    // Convert NewsAPI format to our NewsArticle format
+    return data.articles.map((article: any) => ({
+      title: article.title,
+      content: article.description || article.title,
+      url: article.url,
+      thumbnail: article.urlToImage,
+      source: article.source.name,
+      publishDate: article.publishedAt
+    }));
+  } catch (error) {
+    console.error('Error fetching trending news:', error);
+    return [];
+  }
+}
+
+// Modify getSeedArticle to use NewsAPI trending
+async function getSeedArticle(): Promise<NewsArticle | null> {
+  console.log('Getting seed article from NewsAPI trending...');
+  try {
+    const trendingNews = await getTrendingNews();
+    
+    if (trendingNews.length === 0) {
+      console.log('No trending news available');
       return null;
     }
 
-    const article = response.results[0];
-    console.log("article.content");
-    console.log(article.content);
-    return {
-      ...article,
-      source,
-      content: article.content || article.title
-    };
+    // Get the first trending article as seed
+    const seedArticle = trendingNews[0];
+    console.log('Selected seed article:', seedArticle.title);
+    return seedArticle;
   } catch (error) {
-    console.error(`Error fetching seed article from ${source}:`, error);
+    console.error('Error getting seed article:', error);
     return null;
   }
 }
@@ -262,14 +307,28 @@ export const GET = async (req: Request) => {
     
     // Parse URL parameters
     const url = new URL(req.url);
+    const showAllHeadlines = url.searchParams.get('showAllHeadlines') === 'true';
+    
     const config: StoryGroupConfig = {
-      numStoryGroups: parseInt(url.searchParams.get('numGroups') || '1'),
+      numStoryGroups: parseInt(url.searchParams.get('numGroups') || '2'),
       articlesPerGroup: parseInt(url.searchParams.get('articlesPerGroup') || '5'),
-      seedSource: url.searchParams.get('seedSource') || 'wsj.com'
     };
 
-    console.log('Configuration:', config);
-    
+    // If showAllHeadlines is true, just return all headlines
+    if (showAllHeadlines) {
+      const allHeadlines = await getTrendingNews();
+      return Response.json(
+        {
+          headlines: allHeadlines,
+          total: allHeadlines.length
+        },
+        {
+          status: 200
+        }
+      );
+    }
+
+    // Rest of the existing code for story groups...
     const storyGroups: GroupedStory[] = [];
     const processedUrls = new Set<string>();
 
@@ -278,7 +337,7 @@ export const GET = async (req: Request) => {
       console.log(`\nGenerating story group ${i + 1} of ${config.numStoryGroups}`);
       
       // Get seed article
-      const seedArticle = await getSeedArticle(config.seedSource);
+      const seedArticle = await getSeedArticle();
       if (!seedArticle) {
         console.log(`No seed article found for group ${i + 1}`);
         continue;
