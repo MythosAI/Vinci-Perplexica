@@ -27,13 +27,26 @@ interface GroupedStory {
 
 export default function FinanceNews() {
   const [config, setConfig] = useState({
-    numGroups: 1,
+    numGroups: 2,
     articlesPerGroup: 5,
-    seedSource: 'wsj.com'
+    showAllHeadlines: false
   });
 
-  const { data, error, isLoading } = useSWR<{ stories: GroupedStory[] }>(
-    `/api/finance-news?numGroups=${config.numGroups}&articlesPerGroup=${config.articlesPerGroup}&seedSource=${config.seedSource}`,
+  // Get the showAllHeadlines parameter from the URL
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const showAllHeadlines = url.searchParams.get('showAllHeadlines') === 'true';
+    setConfig(prev => ({
+      ...prev,
+      showAllHeadlines
+    }));
+  }, []);
+
+  const { data, error, isLoading } = useSWR<{ stories: GroupedStory[] } | { headlines: NewsArticle[], total: number }>(
+    `/api/finance-news?` +
+    `numGroups=${config.numGroups}&` +
+    `articlesPerGroup=${config.articlesPerGroup}&` +
+    `showAllHeadlines=${config.showAllHeadlines}`,
     fetcher,
     {
       revalidateOnFocus: false,
@@ -42,7 +55,7 @@ export default function FinanceNews() {
     }
   );
 
-  const handleConfigChange = (key: string, value: string | number) => {
+  const handleConfigChange = (key: string, value: string | number | boolean) => {
     setConfig(prev => ({
       ...prev,
       [key]: value
@@ -52,7 +65,10 @@ export default function FinanceNews() {
   if (error) return <div>Failed to load</div>;
   if (isLoading) return <div>Loading...</div>;
 
-  const stories = data?.stories || [];
+  // Check if we're showing all headlines or story groups
+  const isShowingHeadlines = 'headlines' in data;
+  const headlines = isShowingHeadlines ? data.headlines : [];
+  const stories = !isShowingHeadlines ? data.stories : [];
 
   return (
     <div className="max-w-screen-xl mx-auto px-4">
@@ -63,39 +79,52 @@ export default function FinanceNews() {
         </div>
         
         <div className="flex gap-4 my-4">
+          {!config.showAllHeadlines && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Number of Groups</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="5"
+                  value={config.numGroups}
+                  onChange={(e) => handleConfigChange('numGroups', parseInt(e.target.value))}
+                  className="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Articles per Group</label>
+                <input
+                  type="number"
+                  min="2"
+                  max="10"
+                  value={config.articlesPerGroup}
+                  onChange={(e) => handleConfigChange('articlesPerGroup', parseInt(e.target.value))}
+                  className="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+            </>
+          )}
           <div>
-            <label className="block text-sm font-medium text-gray-700">Number of Groups</label>
-            <input
-              type="number"
-              min="1"
-              max="5"
-              value={config.numGroups}
-              onChange={(e) => handleConfigChange('numGroups', parseInt(e.target.value))}
-              className="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Articles per Group</label>
-            <input
-              type="number"
-              min="2"
-              max="10"
-              value={config.articlesPerGroup}
-              onChange={(e) => handleConfigChange('articlesPerGroup', parseInt(e.target.value))}
-              className="mt-1 block w-20 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Seed Source</label>
+            <label className="block text-sm font-medium text-gray-700">View Mode</label>
             <select
-              value={config.seedSource}
-              onChange={(e) => handleConfigChange('seedSource', e.target.value)}
+              value={config.showAllHeadlines ? 'headlines' : 'groups'}
+              onChange={(e) => {
+                const newValue = e.target.value === 'headlines';
+                handleConfigChange('showAllHeadlines', newValue);
+                // Update URL
+                const url = new URL(window.location.href);
+                if (newValue) {
+                  url.searchParams.set('showAllHeadlines', 'true');
+                } else {
+                  url.searchParams.delete('showAllHeadlines');
+                }
+                window.history.pushState({}, '', url.toString());
+              }}
               className="mt-1 block w-40 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             >
-              <option value="wsj.com">Wall Street Journal</option>
-              <option value="bloomberg.com">Bloomberg</option>
-              <option value="reuters.com">Reuters</option>
-              <option value="ft.com">Financial Times</option>
+              <option value="groups">Story Groups</option>
+              <option value="headlines">All Headlines</option>
             </select>
           </div>
         </div>
@@ -103,11 +132,27 @@ export default function FinanceNews() {
         <hr className="border-t border-[#2B2C2C] my-4 w-full" />
       </div>
 
-      {stories.length === 0 ? (
-        <div className="text-center py-8">
-          <p className="text-gray-600 dark:text-gray-400">No stories found</p>
+      {isShowingHeadlines ? (
+        // Display all headlines
+        <div className="space-y-4">
+          {headlines.map((article, index) => (
+            <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+              <h2 className="text-xl font-bold mb-2">{article.title}</h2>
+              <p className="text-sm text-gray-500 mb-2">{article.source}</p>
+              <p className="mb-4">{article.content}</p>
+              <a
+                href={article.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 hover:text-blue-700"
+              >
+                Read more
+              </a>
+            </div>
+          ))}
         </div>
       ) : (
+        // Display story groups (existing code)
         <div className="space-y-6">
           {stories.map((story, index) => (
             <div key={index} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
