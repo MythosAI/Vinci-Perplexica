@@ -2,6 +2,9 @@ import { searchSearxng } from '@/lib/searxng';
 import { ChatOpenAI } from '@langchain/openai';
 import { getOpenaiApiKey, getNewsApiKey } from '@/lib/config';
 
+// TODO: have a way to remember which articles have story groups generated for them
+// across calls to the API
+
 interface NewsArticle {
   title: string;
   content: string;
@@ -328,24 +331,25 @@ export const GET = async (req: Request) => {
       );
     }
 
-    // Rest of the existing code for story groups...
+    // Fetch all trending articles once
+    const allTrending = await getTrendingNews();
     const storyGroups: GroupedStory[] = [];
     const processedUrls = new Set<string>();
 
-    // Generate multiple story groups
+    // Use the first N unique trending articles as seeds
+    let seedIndex = 0;
     for (let i = 0; i < config.numStoryGroups; i++) {
-      console.log(`\nGenerating story group ${i + 1} of ${config.numStoryGroups}`);
-      
-      // Get seed article
-      const seedArticle = await getSeedArticle();
-      if (!seedArticle) {
-        console.log(`No seed article found for group ${i + 1}`);
-        continue;
+      // Find the next unique seed article
+      let seedArticle = null;
+      while (seedIndex < allTrending.length) {
+        const candidate = allTrending[seedIndex++];
+        if (candidate && !processedUrls.has(candidate.url)) {
+          seedArticle = candidate;
+          break;
+        }
       }
-
-      // Skip if we've already processed this URL
-      if (processedUrls.has(seedArticle.url)) {
-        console.log(`Skipping duplicate seed article: ${seedArticle.url}`);
+      if (!seedArticle) {
+        console.log(`No more unique seed articles found for group ${i + 1}`);
         continue;
       }
       processedUrls.add(seedArticle.url);
