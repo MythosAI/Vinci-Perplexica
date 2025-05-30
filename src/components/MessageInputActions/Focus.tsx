@@ -5,6 +5,7 @@ import {
   Pencil,
   ScanEye,
   SwatchBook,
+  PiggyBank,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -22,6 +23,12 @@ const focusModes = [
     title: 'All',
     description: 'Searches across all of the internet',
     icon: <Globe size={20} />,
+  },
+  {
+    key: 'finSearch',
+    title: 'Finance',
+    description: 'Searches using financial data and news',
+    icon: <PiggyBank size={20} />,
   },
   {
     key: 'academicSearch',

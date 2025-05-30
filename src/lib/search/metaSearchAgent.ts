@@ -44,6 +44,7 @@ interface Config {
   queryGeneratorPrompt: string;
   responsePrompt: string;
   activeEngines: string[];
+  useFinance: boolean;
 }
 
 type BasicChainInput = {
@@ -62,11 +63,17 @@ class MetaSearchAgent implements MetaSearchAgentType {
   private async createSearchRetrieverChain(llm: BaseChatModel) {
     (llm as unknown as ChatOpenAI).temperature = 0;
 
+    console.debug('Creating search retriever chain...');
+
     return RunnableSequence.from([
       PromptTemplate.fromTemplate(this.config.queryGeneratorPrompt),
       llm,
       this.strParser,
       RunnableLambda.from(async (input: string) => {
+        // Input is user's question inn <question>...</question> tags (result is from retriever prompt run)
+        console.debug('Given Input:', input);
+
+        // Parsers for XML tags
         const linksOutputParser = new LineListOutputParser({
           key: 'links',
         });
@@ -75,21 +82,101 @@ class MetaSearchAgent implements MetaSearchAgentType {
           key: 'question',
         });
 
+        const finQueriesOutputParser = new LineOutputParser({
+          key: 'queries',
+        });
+
+        const finSingleQueryOutputParser = new LineOutputParser({
+          key: 'query',
+        });
+
+        const finTickerOutputParser = new LineOutputParser({
+          key: 'ticker',
+        });
+
+        const finCommandOutputParser = new LineOutputParser({
+          key: 'command',
+        });
+
+        // Parse any links from the user input
         const links = await linksOutputParser.parse(input);
+
+        console.log('Parsed Links:', links);
+        
+        // Parse the question from the user input (removing question tags)
+        // TODO what does this really do??? I think this solely extracts the question from the input since there could be other tags?
+        // Actually this seems to be the result of the retreiever prompt?
         let question = this.config.summarizer
           ? await questionOutputParser.parse(input)
           : input;
 
-        if (question === 'not_needed') {
-          return { query: '', docs: [] };
-        }
+        console.log('Parsed Question:', question);
 
+        let docs: Document[] = [];
+        let financeDocs: Document[] = [];
+
+        // If we're in Finance mode, we want to prefer financial data over web search
+        if (this.config.useFinance) {
+          let queriesRaw = await finQueriesOutputParser.parse(input);
+          console.log('Parsed Queries:', queriesRaw);
+          
+          const queryBlocks = queriesRaw.split('\n').map(q => q.trim()).filter(Boolean);
+
+          for (const queryBlock of queryBlocks) {
+            const query = await finSingleQueryOutputParser.parse(queryBlock);
+            console.log('Parsed Query:', query);
+            const ticker = await finTickerOutputParser.parse(query);
+            const command = await finCommandOutputParser.parse(query);
+
+            console.log('Parsed Ticker:', ticker);
+            console.log('Parsed Command:', command);
+
+            // Make backend call and get data
+            const response = await fetch(`${process.env.FIN_BACKEND_SERVER}/${command}?ticker=${ticker}`, {
+              method: 'GET',
+            });
+
+            if (!response.ok) {
+              console.warn(`Finance data fetch failed for ${ticker} ${command}`);
+              continue;
+            }
+          
+            const result = await response.json();
+
+            console.log('Parsed Result:', result);
+
+            // store results in docs??? needs to be passed to answering chain
+            financeDocs.push(
+              new Document({
+                pageContent: result.content || JSON.stringify(result),
+                metadata: {
+                  ticker,
+                  command,
+                  url: `NotAvailable`, // TODO add citation for news or analyst ratings
+                },
+              }),
+            );
+          }
+        }
+        // TODO need to handle cases where financial data neneeded and question both needed and not neneded
+
+        if (question === 'not_needed') {
+          // This will question will not perform a SearXNG search
+          return { query: '', docs: [], financeDocs: financeDocs };
+        }
+        
+        // Perform the XNG search
+
+        // If the user provided a link in the input, 
         if (links.length > 0) {
+          console.debug("CP1.1 - web search summarizer");
+          // If the user provided a link in the input
           if (question.length === 0) {
+            console.debug("CP1.2 - no question");
+            // If the user didn't provide a question and just the link, we will summarize the content
             question = 'summarize';
           }
 
-          let docs: Document[] = [];
 
           const linkDocs = await getDocumentsFromLinks({ links });
 
@@ -200,18 +287,26 @@ class MetaSearchAgent implements MetaSearchAgentType {
             }),
           );
 
-          return { query: question, docs: docs };
+          return { query: question, docs: docs, financeDocs: financeDocs };
         } else {
+
+          console.debug("CP2");
+
+          // This removes the <think> tags from the question
+          // Where do the thinnk Tags come from? questionOutputParser?
+          // Note the think tags are not always present...
           question = question.replace(/<think>.*?<\/think>/g, '');
+          console.debug("New Question: " + question);
 
           const res = await searchSearxng(question, {
             language: 'en',
             engines: this.config.activeEngines,
           });
 
+          
           const documents = res.results.map(
             (result) =>
-              new Document({
+              new Document({ 
                 pageContent:
                   result.content ||
                   (this.config.activeEngines.includes('youtube')
@@ -225,7 +320,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
               }),
           );
 
-          return { query: question, docs: documents };
+          return { query: question, docs: documents, financeDocs: financeDocs };
         }
       }),
     ]);
@@ -248,7 +343,9 @@ class MetaSearchAgent implements MetaSearchAgentType {
           );
 
           let docs: Document[] | null = null;
-          let query = input.query;
+          let financeDocs: Document[] = [];
+          let query = input.query; // This is exactly what the user asked
+
 
           if (this.config.searchWeb) {
             const searchRetrieverChain =
@@ -259,8 +356,58 @@ class MetaSearchAgent implements MetaSearchAgentType {
               query,
             });
 
+            console.log("🟡 Retriever Chain Output (SearXNG):");
+            console.log(JSON.stringify(searchRetrieverResult, null, 2));
+
+            searchRetrieverResult.docs.forEach((doc, i) => {
+              const source = doc.metadata?.url || doc.metadata?.ticker || 'unknown';
+              const contentPreview = doc.pageContent
+                ? doc.pageContent.slice(0, 300)
+                : '[No content]';
+            
+              console.log(`📄 Doc ${i + 1}: [${source}]`);
+              console.log(contentPreview);
+            });
+
+            console.log("🟡 Retriever Chain Output (FinBknd):");
+            console.log(JSON.stringify(searchRetrieverResult, null, 2));
+
+            searchRetrieverResult.financeDocs.forEach((doc, i) => {
+              const source = doc.metadata?.url || doc.metadata?.ticker || 'unknown';
+              const contentPreview = doc.pageContent
+                ? doc.pageContent.slice(0, 300)
+                : '[No content]';
+            
+              console.log(`📄 Doc ${i + 1}: [${source}]`);
+              console.log(contentPreview);
+            });
+
+
             query = searchRetrieverResult.query;
             docs = searchRetrieverResult.docs;
+            financeDocs = searchRetrieverResult.financeDocs;
+          }
+
+          if (this.config.useFinance) {
+            /* TODO add finance stuff to Docs
+
+            If finance is enabled, this needs to be an agent that runs in a loop and does:
+            
+            1) Ask agent what data to query and have it output response like:
+                Query Stock: AAPL Closing Price, Resistance Level, Support Level
+                Query Stock: AAPL MACD, RSI, KDJ, BOLL
+                Query Stock: AAPL 5 Day MA, 10 Day MA, 20 Day MA
+                Query Stock: AAPL Net Fund Flow, Net Fund Flow (Block Order)
+                Query Stock: AAPL Consesus Rating, Analyst Average Price Target
+                Web Search: Apple fundamental Analysis
+                Web Search: Apple technical Analysis
+                Web Search: Apple market sentiments
+                Web Search: Apple news
+                Reddit Search: Apple stock
+                Finviz Search: Apple news
+              2) Given all the data from the above, perform a deep reflection 
+            */
+
           }
 
           const sortedDocs = await this.rerankDocs(
@@ -271,7 +418,22 @@ class MetaSearchAgent implements MetaSearchAgentType {
             optimizationMode,
           );
 
-          return sortedDocs;
+          console.log("🟢 Input to Answering Chain:");
+          console.log("🔹 Final Query:", query);
+          console.log("🔹 Context Document Count:", sortedDocs.length);
+          console.log("🔹 Finance Document Count:", financeDocs.length);
+
+          console.log("💰 Finance Docs:");
+          financeDocs.forEach((doc, i) => {
+            console.log(`📈 [${i + 1}] ${doc.metadata.command} for ${doc.metadata.ticker}`);
+          });
+          
+          console.log("🌐 Web Search Docs (reranked):");
+          sortedDocs.forEach((doc, i) => {
+            console.log(`🔎 [${i + 1}] ${doc.metadata.url || doc.metadata.title || 'Unknown'}`);
+          });
+
+          return [...financeDocs, ...sortedDocs];
         })
           .withConfig({
             runName: 'FinalSourceRetriever',
