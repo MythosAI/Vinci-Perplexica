@@ -72,6 +72,10 @@ export const getCustomOpenaiApiUrl = () =>
 export const getCustomOpenaiModelName = () =>
   loadConfig().MODELS.CUSTOM_OPENAI.MODEL_NAME;
 
+export function getNewsApiKey(): string | undefined {
+  return process.env.NEWSAPI_KEY;
+}
+
 const mergeConfigs = (current: any, update: any): any => {
   if (update === null || update === undefined) {
     return current;
