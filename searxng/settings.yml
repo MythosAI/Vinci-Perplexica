@@ -15,6 +15,3 @@ server:
 engines:
   - name: wolframalpha
     disabled: false
-  - name: google_news
-  - name: bing_news
-  - name: yahoo
