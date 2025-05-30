@@ -1,7 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/utils';
-import { BookOpenText, Home, Search, SquarePen, Settings, VideoIcon } from 'lucide-react';
+import { BookOpenText, Home, Search, SquarePen, Settings, VideoIcon, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useSelectedLayoutSegments } from 'next/navigation';
 import React, { useState, type ReactNode } from 'react';
@@ -40,6 +40,12 @@ const Sidebar = ({ children }: { children: React.ReactNode }) => {
       href: '/news',
       active: segments.includes('news'),
       label: 'News',
+    },
+    {
+      icon: Clock,
+      href: '/finance',
+      active: segments.includes('finance'),
+      label: 'Finance',
     },
   ];
 
