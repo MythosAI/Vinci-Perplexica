@@ -101,7 +101,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
         // Parse any links from the user input
         const links = await linksOutputParser.parse(input);
 
-        console.log('Parsed Links:', links);
+        console.debug('Parsed Links:', links);
         
         // Parse the question from the user input (removing question tags)
         // TODO what does this really do??? I think this solely extracts the question from the input since there could be other tags?
@@ -110,28 +110,27 @@ class MetaSearchAgent implements MetaSearchAgentType {
           ? await questionOutputParser.parse(input)
           : input;
 
-        console.log('Parsed Question:', question);
+        console.debug('Parsed Question:', question);
 
         let docs: Document[] = [];
-        let financeDocs: Document[] = [];
 
         // If we're in Finance mode, we want to prefer financial data over web search
         if (this.config.useFinance) {
           let queriesRaw = await finQueriesOutputParser.parse(input);
-          console.log('Parsed Queries:', queriesRaw);
+          console.debug('Parsed Queries:', queriesRaw);
           
           const queryBlocks = queriesRaw.split('\n').map(q => q.trim()).filter(Boolean);
 
           for (const queryBlock of queryBlocks) {
             const query = await finSingleQueryOutputParser.parse(queryBlock);
-            console.log('Parsed Query:', query);
             const ticker = await finTickerOutputParser.parse(query);
             const command = await finCommandOutputParser.parse(query);
 
-            console.log('Parsed Ticker:', ticker);
-            console.log('Parsed Command:', command);
+            console.debug('Parsed Ticker:', ticker);
+            console.debug('Parsed Command:', command);
 
             // Make backend call and get data
+            console.log("Finance Backend Endpoint:", `${process.env.FIN_BACKEND_SERVER}/${command}?ticker=${ticker}`);
             const response = await fetch(`${process.env.FIN_BACKEND_SERVER}/${command}?ticker=${ticker}`, {
               method: 'GET',
             });
@@ -143,16 +142,16 @@ class MetaSearchAgent implements MetaSearchAgentType {
           
             const result = await response.json();
 
-            console.log('Parsed Result:', result);
+            console.debug('Parsed Result:', result);
 
             // store results in docs??? needs to be passed to answering chain
-            financeDocs.push(
+            docs.push(
               new Document({
                 pageContent: result.content || JSON.stringify(result),
                 metadata: {
                   ticker,
                   command,
-                  url: `NotAvailable`, // TODO add citation for news or analyst ratings
+                  url: `https://finviz.com/quote.ashx?t=${ticker}`, 
                 },
               }),
             );
@@ -162,7 +161,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
 
         if (question === 'not_needed') {
           // This will question will not perform a SearXNG search
-          return { query: '', docs: [], financeDocs: financeDocs };
+          return { query: '', docs: docs };
         }
         
         // Perform the XNG search
@@ -287,7 +286,7 @@ class MetaSearchAgent implements MetaSearchAgentType {
             }),
           );
 
-          return { query: question, docs: docs, financeDocs: financeDocs };
+          return { query: question, docs: docs };
         } else {
 
           console.debug("CP2");
@@ -320,137 +319,76 @@ class MetaSearchAgent implements MetaSearchAgentType {
               }),
           );
 
-          return { query: question, docs: documents, financeDocs: financeDocs };
+          return { query: question, docs: [...docs, ...documents] };
         }
       }),
     ]);
   }
+private async createAnsweringChain(
+  llm: BaseChatModel,
+  fileIds: string[],
+  embeddings: Embeddings,
+  optimizationMode: 'speed' | 'balanced' | 'quality',
+) {
+  const chatPrompt = ChatPromptTemplate.fromMessages([
+    ['system', this.config.responsePrompt],
+    new MessagesPlaceholder('chat_history'),
+    ['user', '{query}'],
+  ]);
 
-  private async createAnsweringChain(
-    llm: BaseChatModel,
-    fileIds: string[],
-    embeddings: Embeddings,
-    optimizationMode: 'speed' | 'balanced' | 'quality',
-  ) {
-    return RunnableSequence.from([
-      RunnableMap.from({
-        query: (input: BasicChainInput) => input.query,
-        chat_history: (input: BasicChainInput) => input.chat_history,
-        date: () => new Date().toISOString(),
-        context: RunnableLambda.from(async (input: BasicChainInput) => {
-          const processedHistory = formatChatHistoryAsString(
-            input.chat_history,
-          );
+  return RunnableSequence.from([
+    RunnableMap.from({
+      query: (input: BasicChainInput) => input.query,
+      chat_history: (input: BasicChainInput) => input.chat_history,
+      date: () => new Date().toISOString(),
+      context: RunnableLambda.from(async (input: BasicChainInput) => {
+        const processedHistory = formatChatHistoryAsString(input.chat_history);
 
-          let docs: Document[] | null = null;
-          let financeDocs: Document[] = [];
-          let query = input.query; // This is exactly what the user asked
+        let query = input.query;
+        let docs: Document[] = [];
 
-
-          if (this.config.searchWeb) {
-            const searchRetrieverChain =
-              await this.createSearchRetrieverChain(llm);
-
-            const searchRetrieverResult = await searchRetrieverChain.invoke({
-              chat_history: processedHistory,
-              query,
-            });
-
-            console.log("🟡 Retriever Chain Output (SearXNG):");
-            console.log(JSON.stringify(searchRetrieverResult, null, 2));
-
-            searchRetrieverResult.docs.forEach((doc, i) => {
-              const source = doc.metadata?.url || doc.metadata?.ticker || 'unknown';
-              const contentPreview = doc.pageContent
-                ? doc.pageContent.slice(0, 300)
-                : '[No content]';
-            
-              console.log(`📄 Doc ${i + 1}: [${source}]`);
-              console.log(contentPreview);
-            });
-
-            console.log("🟡 Retriever Chain Output (FinBknd):");
-            console.log(JSON.stringify(searchRetrieverResult, null, 2));
-
-            searchRetrieverResult.financeDocs.forEach((doc, i) => {
-              const source = doc.metadata?.url || doc.metadata?.ticker || 'unknown';
-              const contentPreview = doc.pageContent
-                ? doc.pageContent.slice(0, 300)
-                : '[No content]';
-            
-              console.log(`📄 Doc ${i + 1}: [${source}]`);
-              console.log(contentPreview);
-            });
-
-
-            query = searchRetrieverResult.query;
-            docs = searchRetrieverResult.docs;
-            financeDocs = searchRetrieverResult.financeDocs;
-          }
-
-          if (this.config.useFinance) {
-            /* TODO add finance stuff to Docs
-
-            If finance is enabled, this needs to be an agent that runs in a loop and does:
-            
-            1) Ask agent what data to query and have it output response like:
-                Query Stock: AAPL Closing Price, Resistance Level, Support Level
-                Query Stock: AAPL MACD, RSI, KDJ, BOLL
-                Query Stock: AAPL 5 Day MA, 10 Day MA, 20 Day MA
-                Query Stock: AAPL Net Fund Flow, Net Fund Flow (Block Order)
-                Query Stock: AAPL Consesus Rating, Analyst Average Price Target
-                Web Search: Apple fundamental Analysis
-                Web Search: Apple technical Analysis
-                Web Search: Apple market sentiments
-                Web Search: Apple news
-                Reddit Search: Apple stock
-                Finviz Search: Apple news
-              2) Given all the data from the above, perform a deep reflection 
-            */
-
-          }
-
-          const sortedDocs = await this.rerankDocs(
+        if (this.config.searchWeb) {
+          const searchRetrieverChain = await this.createSearchRetrieverChain(llm);
+          const searchRetrieverResult = await searchRetrieverChain.invoke({
+            chat_history: processedHistory,
             query,
-            docs ?? [],
-            fileIds,
-            embeddings,
-            optimizationMode,
-          );
-
-          console.log("🟢 Input to Answering Chain:");
-          console.log("🔹 Final Query:", query);
-          console.log("🔹 Context Document Count:", sortedDocs.length);
-          console.log("🔹 Finance Document Count:", financeDocs.length);
-
-          console.log("💰 Finance Docs:");
-          financeDocs.forEach((doc, i) => {
-            console.log(`📈 [${i + 1}] ${doc.metadata.command} for ${doc.metadata.ticker}`);
-          });
-          
-          console.log("🌐 Web Search Docs (reranked):");
-          sortedDocs.forEach((doc, i) => {
-            console.log(`🔎 [${i + 1}] ${doc.metadata.url || doc.metadata.title || 'Unknown'}`);
           });
 
-          return [...financeDocs, ...sortedDocs];
-        })
-          .withConfig({
-            runName: 'FinalSourceRetriever',
-          })
-          .pipe(this.processDocs),
-      }),
-      ChatPromptTemplate.fromMessages([
-        ['system', this.config.responsePrompt],
-        new MessagesPlaceholder('chat_history'),
-        ['user', '{query}'],
-      ]),
-      llm,
-      this.strParser,
-    ]).withConfig({
-      runName: 'FinalResponseGenerator',
-    });
-  }
+          query = searchRetrieverResult.query;
+          docs = searchRetrieverResult.docs;
+          console.log("Search Retriever Query:", query);
+          console.log("Search Retriever Docs:", docs);
+        }
+
+        const sortedDocs = await this.rerankDocs(
+          query,
+          docs ?? [],
+          fileIds,
+          embeddings,
+          optimizationMode,
+        );
+
+        return sortedDocs;
+      })
+        .withConfig({ runName: 'FinalSourceRetriever' })
+        .pipe(this.processDocs),
+    }),
+
+    // Inject prompt logging here
+    RunnableLambda.from(async (input) => {
+      const rendered = await chatPrompt.formatMessages(input);
+      console.log('📝 Final Prompt Sent to LLM:');
+      for (const msg of rendered) {
+        console.log(`${msg._getType().toUpperCase()}: ${msg.content}`);
+      }
+      return rendered;
+    }),
+
+    llm,
+    this.strParser,
+  ]).withConfig({ runName: 'FinalResponseGenerator' });
+}
+
 
   private async rerankDocs(
     query: string,
